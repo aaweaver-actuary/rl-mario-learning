@@ -1,0 +1,1 @@
+conda env export -p ./envs/mario > mario_env2.yml

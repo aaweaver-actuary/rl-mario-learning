@@ -163,6 +163,11 @@ class Mario:
         Update the exploration rate, so that Mario explores less and less
         as he gets better at the game.
         """
+        # print a message
+        # rate, decay = self.exploration_rate, self.exploration_rate_decay
+        # print(f"Updating exploration rate: {rate} * {decay} = {rate * decay}")
+
+        # decay the rate
         self.exploration_rate = self.exploration_rate * self.exploration_rate_decay
         self.exploration_rate = max(self.exploration_rate, self.exploration_rate_min)
 
@@ -171,6 +176,10 @@ class Mario:
         Explore the environment by taking a random action. This is used
         early in the training process, when Mario doesn't know what to do.
         """
+        # # print a message
+        # print("Exploring! ", end=" - ")
+
+        # choose a random action
         action_idx = np.random.randint(self.action_dim)
         return action_idx
     
@@ -180,6 +189,9 @@ class Mario:
         Q-value. This is used later in the training process, when Mario
         has learned what to do.
         """
+        # print a message
+        print("Exploiting! ", end=" - ")
+
         # convert state to tensor
         state = state[0].__array__() if isinstance(state, tuple) else state.__array__()
         state = torch.tensor(state, device=self.device).unsqueeze(0)

@@ -50,11 +50,22 @@ class MarioNet(nn.Module):
         self.online = nn.Sequential(
             
             # 3 convolutional layers w/ leaky relu activation
-            nn.Conv2d(in_channels=c, out_channels=32, kernel_size=kernel_size[0], stride=stride[0]),
+            nn.Conv2d(in_channels=c
+                    , out_channels=32
+                    , kernel_size=kernel_size[0]
+                    , stride=stride[0]),
             nn.LeakyReLU(relu_slope),
-            nn.Conv2d(in_channels=32, out_channels=64, kernel_size=kernel_size[1], stride=stride[1]),
+
+            nn.Conv2d(in_channels=32
+                    , out_channels=64
+                    , kernel_size=kernel_size[1]
+                    , stride=stride[1]),
             nn.LeakyReLU(relu_slope),
-            nn.Conv2d(in_channels=64, out_channels=64, kernel_size=kernel_size[2], stride=stride[2]),
+
+            nn.Conv2d(in_channels=64
+                    , out_channels=64
+                    , kernel_size=kernel_size[2]
+                    , stride=stride[2]),
             nn.LeakyReLU(relu_slope),
 
             # flatten output
@@ -72,8 +83,8 @@ class MarioNet(nn.Module):
 
         # Q_target parameters are frozen, so that they are not updated by the optimizer
         for p in self.target.parameters():
-            # requires grad is a boolean flag that indicates whether the parameters should be updated
-            # by the optimizer or not
+            # requires grad is a boolean flag that indicates whether
+            # the parameters should be updated by the optimizer or not
             p.requires_grad = False
 
     # forward pass through network
@@ -81,6 +92,8 @@ class MarioNet(nn.Module):
                 , input : torch.Tensor
                 , model : str = "online"
                 ):
+        # print(f"Forward pass through {model} network")
+        # print(f"Input shape: {input.shape}")
         if model == "online":
             return self.online(input)
         elif model == "target":

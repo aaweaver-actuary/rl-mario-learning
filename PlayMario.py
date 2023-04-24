@@ -1,5 +1,5 @@
 import cv2
-
+import pandas as pd
 import warnings
 from gym.utils import passive_env_checker
 
@@ -24,7 +24,7 @@ from nes_py.wrappers import JoypadSpace
 import gym_super_mario_bros
 
 # imageio is used to save the training progress as a gif
-import imageio
+# import imageio
 
 # pyvirtualdisplay is used to create a virtual display to watch the agent play
 # from pyvirtualdisplay import Display
@@ -49,7 +49,7 @@ class PlayMario:
                 , skip_frames : int = 4
                 , resize_shape : int = 84
                 , stack_frames : int = 4
-                , episodes : int = 10
+                , episodes : int = 200
                 , fps : int = 30
                 , save_dir : str = "models"
                 ):
@@ -64,6 +64,29 @@ class PlayMario:
         self.episodes = episodes
         self.fps = fps
         self.save_dir = save_dir
+
+        # create unique model id
+        today = datetime.datetime.today()
+        def add_zero(x):
+            return "0" + str(x) if x < 10 else str(x)
+        self.model_id = f"{today.year}{add_zero(today.month)}{add_zero(today.day)}{add_zero(today.hour)}{add_zero(today.minute)}{add_zero(today.second)}"
+        self.model_id = int(self.model_id)
+
+        # initialize step and episode dataframes
+        self.step_df = pd.DataFrame(columns=['episode', 'step', 'reward', 'loss', 'q'])
+        self.episode_df = pd.DataFrame(columns=["episode"
+                                                , 'epsilon'
+                                                , "total_reward"
+                                                , "total_steps"
+                                                , "total_time"])
+
+        self.step_file = f"{self.save_dir}/step_{self.model_id}.feather"
+        self.episode_file = f"{self.save_dir}/episode_{self.model_id}.feather"
+        
+        self.step_df.to_feather(self.step_file)
+        self.episode_df.to_feather(self.episode_file)
+
+        
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -91,13 +114,19 @@ class PlayMario:
                                       , save_dir=self.save_dir)
 
         # initialize metric logger
-        self.logger = MetricLogger(self.save_dir)
+        self.logger = MetricLogger(self.save_dir
+                                 , step_file=self.step_file
+                                 , episode_file=self.episode_file
+                                 , episode_counter=0)
 
         # initialize replay buffer
         self.frames = []
 
         # calculate opencv waitkey delay
         self.opencv_wait_time = int((1000 / self.fps))
+
+        # initialize episode counter
+        self.episode_count = 0
 
     def build_env(self):
         
@@ -195,42 +224,73 @@ class PlayMario:
                 break
 
         # increment episode counter
-        self.episodes += 1
+        self.episode_count += 1
+
+        # After finishing the episode loop
+        cv2.destroyAllWindows()
 
         # Add the episode frames to the main frames list
         self.frames.append(episode_frames)
 
+        self.update_step_df()
+
         # Save the episode frames to a video
-        print("Saving video")
-        imageio.mimsave(f'games/mario_gameplay_{self.episodes}.mp4'
-                        , episode_frames
-                        , fps=self.fps)
+        # print("Saving video")
+        # imageio.mimsave(f'games/mario_gameplay_{self.episode_count}.mp4'
+        #                 , episode_frames
+        #                 , fps=self.fps)
+
+    def update_episode_df(self):
+        # create new df with current episode metrics
+        new_df = pd.DataFrame({'episode':self.logger.episode_counter
+                             , 'reward': self.logger.curr_ep_reward
+                             , 'epsilon': self.logger.curr_ep_epsilon
+                             , 'length': self.logger.curr_ep_length
+                             , 'loss': self.logger.curr_ep_loss
+                             , 'q': self.logger.curr_ep_q}
+                             , index=[0])
+
+        # append new df to existing episode df
+        (pd.concat(
+            [pd.read_feather(self.episode_file), new_df])
+            .reset_index(drop=True)
+            .to_feather(self.episode_file))
+
+
+    def update_step_df(self):
+        # create new df with current episode metrics
+        new_df = pd.DataFrame({'episode':self.logger.episode_counter
+                             , 'step':self.logger.curr_ep_length
+                             , 'reward': self.logger.curr_ep_reward
+                             , 'loss': self.logger.curr_ep_loss
+                             , 'q': self.logger.curr_ep_q}
+                             , index=[0])
+
+        # append new df to existing episode df
+        (pd.concat([pd.read_feather(self.step_file), new_df])
+            .reset_index(drop=True)
+            .to_feather(self.step_file))
 
     def train(self):
         """
         Runs the training loop for the agent
         """
-        # Create a virtual display if on a linux server
-        if os.name == "posix":
-            # pyvirtualdisplay is used to create a virtual display to watch the agent play
-            from pyvirtualdisplay import Display
-            display = Display(visible=0, size=(1400, 900))
-            display.start()
-
-        # Initialize episode counter
-        self.episodes = 0
-
         # loop through the episodes
         for e in tqdm(range(self.episodes), desc="Episodes"):
-            print("==========================================")
-            print("Episode {e} - Starting Episode")
-            print("==========================================")
+            print("\n==========================================")
+            print(f"Episode {e} - Starting Episode")
+            print("==========================================\n\n")
 
             # Run a single episode of the game
             self.single_play()
 
             # Log the episode
-            self.logger.log_episode()
+            print("\n==========================================")
+            print(f"Episode {e} - Logging Episode")
+            print("==========================================\n\n")
+            self.logger.log_episode(episode_counter=e+1)
+
+            self.update_episode_df()
 
             # Save the model
             if e % 20 == 0:
@@ -238,4 +298,4 @@ class PlayMario:
                                    , epsilon=self.mario.exploration_rate
                                    , step=self.mario.curr_step)
 
- 
+                self.mario.save_model()

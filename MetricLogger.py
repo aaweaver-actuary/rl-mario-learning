@@ -1,7 +1,9 @@
+
 import datetime, time
 import numpy as np
 import os
-import plotly.express as px
+import matplotlib.pyplot as plt
+import pandas as pd
 
 class MetricLogger:
     """
@@ -14,9 +16,19 @@ class MetricLogger:
     """
     def __init__(self
                  , save_dir : str = "models"
+                 , data_dir : str = "data"
+                 , step_file : str = None
+                 , episode_file : str = None
+                 , episode_counter : int = 0
+                 
                  ):
         self.save_log = os.path.join(save_dir, "log.txt")
         self.save_plots = os.path.join(save_dir, "plots")
+        self.step_counter = 0
+        self.episode_counter = episode_counter
+
+        self.step_file = step_file
+        self.episode_file = episode_file
 
 
         with open(self.save_log, "a") as f:
@@ -25,10 +37,10 @@ class MetricLogger:
                 f"{'MeanLength':>15}{'MeanLoss':>15}{'MeanQValue':>15}"
                 f"{'TimeDelta':>15}{'Time':>20}\n"
             )
-        self.ep_rewards_plot = os.path.join(self.save_plots, "reward_plot.jpg")
-        self.ep_lengths_plot = os.path.join(self.save_plots, "length_plot.jpg")
-        self.ep_avg_losses_plot = os.path.join(self.save_plots, "loss_plot.jpg")
-        self.ep_avg_qs_plot = os.path.join(self.save_plots, "q_plot.jpg")
+        # self.ep_rewards_plot = os.path.join(self.save_plots, "reward_plot.jpg")
+        # self.ep_lengths_plot = os.path.join(self.save_plots, "length_plot.jpg")
+        # self.ep_avg_losses_plot = os.path.join(self.save_plots, "loss_plot.jpg")
+        # self.ep_avg_qs_plot = os.path.join(self.save_plots, "q_plot.jpg")
 
         # History metrics
         self.ep_rewards = []
@@ -55,9 +67,14 @@ class MetricLogger:
             self.curr_ep_loss += loss
             self.curr_ep_q += q
             self.curr_ep_loss_length += 1
+    
+        # increment step counter
+        self.step_counter += 1
 
     def log_episode(self):
         "Mark end of episode"
+        print(f"""\n\nLogging episode: reward={self.curr_ep_reward}
+                                     , length={self.curr_ep_length}\n\n""")
         self.ep_rewards.append(self.curr_ep_reward)
         self.ep_lengths.append(self.curr_ep_length)
         if self.curr_ep_loss_length == 0:
@@ -68,6 +85,8 @@ class MetricLogger:
             ep_avg_q = np.round(self.curr_ep_q / self.curr_ep_loss_length, 5)
         self.ep_avg_losses.append(ep_avg_loss)
         self.ep_avg_qs.append(ep_avg_q)
+
+        
 
         self.init_episode()
 
@@ -104,20 +123,23 @@ class MetricLogger:
             f"Time {datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')}"
         )
 
-        with open(self.save_log, "a") as f:
-            f.write(
-                f"{episode:8d}{step:8d}{epsilon:10.3f}"
-                f"{mean_ep_reward:15.3f}{mean_ep_length:15.3f}{mean_ep_loss:15.3f}{mean_ep_q:15.3f}"
-                f"{time_since_last_record:15.3f}"
-                f"{datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S'):>20}\n"
-            )
+        # with open(self.save_log, "a") as f:
+        #     f.write(
+        #         f"{episode:8d}{step:8d}{epsilon:10.3f}"
+        #         f"{mean_ep_reward:15.3f}{mean_ep_length:15.3f}{mean_ep_loss:15.3f}{mean_ep_q:15.3f}"
+        #         f"{time_since_last_record:15.3f}"
+        #         f"{datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S'):>20}\n"
+        #     )
 
-        for metric in ["ep_rewards", "ep_lengths", "ep_avg_losses", "ep_avg_qs"]:
-            # plt.plot(getattr(self, f"moving_avg_{metric}"))
-            px.line(
-                x=range(len(getattr(self, f"moving_avg_{metric}"))),
-                y=getattr(self, f"moving_avg_{metric}"),
-            ).write_image(getattr(self, f"{metric}_plot"))
+        # for metric in ["ep_rewards", "ep_lengths", "ep_avg_losses", "ep_avg_qs"]:
+        #     plt.plot(getattr(self, f"moving_avg_{metric}"))
+        #     # px.line(
+        #     #     x=range(len(getattr(self, f"moving_avg_{metric}"))),
+        #     #     y=getattr(self, f"moving_avg_{metric}"),
+        #     # ).write_image(getattr(self, f"{metric}_plot"))
 
-            # plt.savefig(getattr(self, f"{metric}_plot"))
-            # plt.clf()
+        #     # check that the directory exists, if not, create it
+        #     if not os.path.exists(f"plots/{metric}_plot"):
+        #         os.makedirs(f"plots/{metric}_plot")
+        #     plt.savefig(f"plots/{metric}_plot/{metric}_plot_{episode}.jpg")
+        #     plt.clf()
